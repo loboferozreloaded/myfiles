@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extractor Final para Google Sheets</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            font-size: 9pt; /* Tamaño base 9 para todo el documento */
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 10px;
+            font-family: Arial, sans-serif;
+            font-size: 9pt;
+        }
+        button {
+            padding: 8px 15px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            font-family: Arial, sans-serif;
+            font-size: 9pt;
+        }
+        #resultados {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            white-space: pre;
+            overflow-x: auto;
+            font-family: Arial, sans-serif;
+            font-size: 9pt;
+            line-height: 1.4;
+        }
+        #encabezados {
+            font-weight: bold;
+            margin-bottom: 5px;
+            padding: 5px;
+            background-color: #e0e0e0;
+            font-family: Arial, sans-serif;
+            font-size: 9pt;
+        }
+        h2 {
+            font-family: Arial, sans-serif;
+            font-size: 11pt; /* Un poco más grande para el título */
+        }
+    </style>
+</head>
+<body>
+    <h2>Extractor Final para Google Sheets</h2>
+    <textarea id="textoEntrada" placeholder="Pega aquí los datos del cliente..."></textarea>
+    <div>
+        <button onclick="pegarTexto()">Pegar Texto</button>
+        <button onclick="extraerDatos()">Extraer Datos</button>
+        <button onclick="copiarResultados()">Copiar para Sheets</button>
+        <button onclick="limpiarTodo()">Limpiar Todo</button>
+    </div>
+    <div id="encabezados"></div>
+    <div id="resultados"></div>
+
+    <script>
+        // Variable para almacenar los datos extraídos
+        let datosExtraidos = [];
+        const encabezadosOrdenados = [
+            'URL Empresa',
+            'Empresa',
+            'Región',
+            'Categoría',
+            'Nombre',
+            'Teléfono',
+            'Email'
+        ];
+
+        function pegarTexto() {
+            navigator.clipboard.readText()
+                .then(text => {
+                    document.getElementById('textoEntrada').value = text;
+                })
+                .catch(err => {
+                    alert('No se pudo acceder al portapapeles. Pega manualmente (Ctrl+V)');
+                });
+        }
+
+        function extraerDatos() {
+            const texto = document.getElementById('textoEntrada').value.trim();
+            if (!texto) {
+                alert('Por favor pega los datos primero');
+                return;
+            }
+
+            // Extraer datos con expresiones regulares
+            const nombreCompleto = texto.match(/Nombre y apellidos\t(.+)/)?.[1]?.trim() || '';
+            const primerNombre = nombreCompleto.split(' ')[0];
+            
+            const empresaCompleta = texto.match(/Nombre empresa\t(.+)/)?.[1]?.trim() || '';
+            const empresa = empresaCompleta.split('-')[0].trim();
+            const idEmpresa = empresaCompleta.match(/- (\d+)$/)?.[1] || '';
+            const urlEmpresa = `https://cl.nuptic.com/admin/admin-Crm.php?id_empresa=${idEmpresa}`;
+            
+            const telefonoRaw = texto.match(/Teléfono\t(.+)/)?.[1]?.trim() || '';
+            const telefono = normalizarTelefono(telefonoRaw);
+            
+            const email = texto.match(/Email\t(.+)/)?.[1]?.trim() || '';
+            const region = texto.match(/Región\t(.+)/)?.[1]?.trim() || '';
+            const categoria = texto.match(/Categoría\t(.+)/)?.[1]?.trim() || '';
+
+            // Almacenar datos en el nuevo orden
+            datosExtraidos = [
+                urlEmpresa,
+                empresa,
+                region,
+                categoria,
+                primerNombre,
+                telefono,
+                email
+            ];
+
+            // Mostrar encabezados y datos por separado
+            document.getElementById('encabezados').textContent = encabezadosOrdenados.join('\t');
+            document.getElementById('resultados').textContent = datosExtraidos.join('\t');
+        }
+
+        function normalizarTelefono(numero) {
+            let telefono = numero.replace(/\D/g, '');
+            if (telefono.startsWith('56')) {
+                return '+' + telefono;
+            }
+            if (telefono.startsWith('9') && telefono.length === 9) {
+                return '+56' + telefono;
+            }
+            if (telefono.length === 8) {
+                return '+562' + telefono;
+            }
+            return telefono;
+        }
+
+        function copiarResultados() {
+            if (datosExtraidos.length === 0) {
+                alert('No hay datos para copiar');
+                return;
+            }
+
+            // Copiar solo los datos (sin encabezados)
+            const textarea = document.createElement('textarea');
+            textarea.value = datosExtraidos.join('\t');
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                document.execCommand('copy');
+                alert('Datos copiados (sin encabezados). Al pegar en Google Sheets, cada valor irá en una celda separada en el orden solicitado.');
+            } catch (err) {
+                alert('Error al copiar: ' + err);
+            }
+            
+            document.body.removeChild(textarea);
+        }
+
+        function limpiarTodo() {
+            document.getElementById('textoEntrada').value = '';
+            document.getElementById('encabezados').textContent = '';
+            document.getElementById('resultados').textContent = '';
+            datosExtraidos = [];
+        }
+    </script>
+</body>
+</html>
